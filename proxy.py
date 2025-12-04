@@ -12,6 +12,13 @@ LinkedIn: https://www.linkedin.com/in/philipsenger/
 
 License: MIT License
 Copyright (c) 2025 Philip A Senger
+
+SECURITY NOTES:
+- The Anthropic API key is only used to authenticate with Anthropic's official API
+- The API key is never sent to any third-party servers
+- Headers and error messages are sanitized in DEBUG mode to prevent accidental logging of sensitive data
+- Generic error messages are returned to clients to avoid exposing internal details
+- For production use, ensure LOG_LEVEL is not set to DEBUG and log files are properly secured
 """
 
 import os
@@ -67,6 +74,59 @@ CLAUDE_TO_OLLAMA_MAPPING = {v: k for k, v in OLLAMA_TO_CLAUDE_MAPPING.items()}
 
 proxy_logger.info(f"Model mappings loaded: {len(OLLAMA_TO_CLAUDE_MAPPING)} models available")
 proxy_logger.debug(f"Available Ollama models: {list(OLLAMA_TO_CLAUDE_MAPPING.keys())}")
+
+
+# Security: Headers that are safe to log
+SAFE_HEADERS_ALLOWLIST = {
+    'content-type', 'content-length', 'user-agent', 'accept',
+    'accept-encoding', 'accept-language', 'cache-control',
+    'connection', 'host', 'referer', 'anthropic-version'
+}
+
+# Security: Patterns in error messages that might contain sensitive data
+SENSITIVE_ERROR_PATTERNS = ['api-key', 'api_key', 'anthropic_api_key', 'x-api-key', 'authorization', 'token']
+
+
+def sanitize_headers(headers: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Sanitize headers for logging by only including safe headers.
+    This prevents accidental logging of API keys or other sensitive data.
+    """
+    sanitized = {}
+    for key, value in headers.items():
+        key_lower = key.lower()
+        if key_lower in SAFE_HEADERS_ALLOWLIST:
+            sanitized[key] = value
+        else:
+            sanitized[key] = '[REDACTED]'
+    return sanitized
+
+
+def sanitize_error_data(data: Any) -> Any:
+    """
+    Sanitize error data to prevent leaking sensitive information.
+    Recursively processes dictionaries and lists.
+    """
+    if isinstance(data, dict):
+        sanitized = {}
+        for key, value in data.items():
+            key_lower = key.lower()
+            # Check if key might contain sensitive data
+            if any(pattern in key_lower for pattern in SENSITIVE_ERROR_PATTERNS):
+                sanitized[key] = '[REDACTED]'
+            else:
+                sanitized[key] = sanitize_error_data(value)
+        return sanitized
+    elif isinstance(data, list):
+        return [sanitize_error_data(item) for item in data]
+    elif isinstance(data, str):
+        # Check if string might contain sensitive patterns
+        data_lower = data.lower()
+        if any(pattern in data_lower for pattern in SENSITIVE_ERROR_PATTERNS):
+            return '[REDACTED - potentially sensitive content]'
+        return data
+    else:
+        return data
 
 
 @dataclass
@@ -185,7 +245,8 @@ class ClaudeProvider:
 
             claude_logger.info(
                 f"[{request_id}] Claude API response received - Status: {response.status_code}, Duration: {api_duration:.2f}s")
-            claude_logger.debug(f"[{request_id}] Response headers: {dict(response.headers)}")
+            # Security: Sanitize response headers to prevent logging sensitive data
+            claude_logger.debug(f"[{request_id}] Response headers: {sanitize_headers(dict(response.headers))}")
 
             response.raise_for_status()
 
@@ -226,9 +287,13 @@ class ClaudeProvider:
             claude_logger.error(f"[{request_id}] Claude API HTTP error - Status: {response.status_code}")
             try:
                 error_data = response.json()
-                claude_logger.error(f"[{request_id}] Error details: {json.dumps(error_data, indent=2)}")
+                # Security: Sanitize error data before logging to prevent exposing sensitive information
+                sanitized_error = sanitize_error_data(error_data)
+                claude_logger.error(f"[{request_id}] Error details: {json.dumps(sanitized_error, indent=2)}")
             except:
-                claude_logger.error(f"[{request_id}] Error response body: {response.text}")
+                # Security: Only log a truncated version of the error response
+                error_text = response.text[:200] + '...' if len(response.text) > 200 else response.text
+                claude_logger.error(f"[{request_id}] Error response body (truncated): {error_text}")
             raise
         except requests.exceptions.RequestException as e:
             claude_logger.error(f"[{request_id}] Claude API request failed after {time.time() - start_time:.2f}s: {e}")
@@ -332,7 +397,8 @@ proxy_logger.info("Flask app and Claude provider initialized")
 def log_request_info():
     """Log incoming request details"""
     api_logger.info(f"Incoming request: {request.method} {request.path}")
-    api_logger.debug(f"Request headers: {dict(request.headers)}")
+    # Security: Sanitize headers to prevent logging sensitive data like API keys
+    api_logger.debug(f"Request headers: {sanitize_headers(dict(request.headers))}")
     api_logger.debug(f"Request remote addr: {request.remote_addr}")
     api_logger.debug(f"Request user agent: {request.headers.get('User-Agent', 'Unknown')}")
 
@@ -358,7 +424,8 @@ def log_request_info():
 def log_response_info(response):
     """Log response details"""
     api_logger.info(f"Response: {response.status_code} for {request.method} {request.path}")
-    api_logger.debug(f"Response headers: {dict(response.headers)}")
+    # Security: Sanitize response headers to prevent logging sensitive data
+    api_logger.debug(f"Response headers: {sanitize_headers(dict(response.headers))}")
 
     if response.content_type and 'application/json' in response.content_type:
         try:
@@ -397,7 +464,8 @@ def get_tags():
         return jsonify({"models": models})
     except Exception as e:
         api_logger.error(f"Error getting models: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        # Security: Don't expose internal error details to clients
+        return jsonify({"error": "Failed to retrieve models list"}), 500
 
 
 @app.route('/api/show', methods=['POST'])
@@ -423,7 +491,8 @@ def show_model():
 
     except Exception as e:
         api_logger.error(f"Error getting model details: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        # Security: Don't expose internal error details to clients
+        return jsonify({"error": "Failed to retrieve model details"}), 500
 
 
 @app.route('/api/chat', methods=['POST'])
@@ -511,19 +580,23 @@ def chat():
     except requests.exceptions.Timeout as e:
         duration = time.time() - request_start_time
         api_logger.error(f"[{request_id}] Request timeout after {duration:.2f}s: {e}")
-        return jsonify({"error": f"Request timeout: {str(e)}"}), 504
+        # Security: Don't expose internal error details to clients
+        return jsonify({"error": "Request timeout - the Claude API took too long to respond"}), 504
     except requests.exceptions.HTTPError as e:
         duration = time.time() - request_start_time
         api_logger.error(f"[{request_id}] Claude API HTTP error after {duration:.2f}s: {e}")
-        return jsonify({"error": f"Claude API error: {str(e)}"}), 502
+        # Security: Don't expose internal error details to clients
+        return jsonify({"error": "Claude API returned an error"}), 502
     except requests.exceptions.RequestException as e:
         duration = time.time() - request_start_time
         api_logger.error(f"[{request_id}] Claude API request failed after {duration:.2f}s: {e}")
-        return jsonify({"error": f"Claude API error: {str(e)}"}), 502
+        # Security: Don't expose internal error details to clients
+        return jsonify({"error": "Failed to communicate with Claude API"}), 502
     except Exception as e:
         duration = time.time() - request_start_time
         api_logger.error(f"[{request_id}] Chat error after {duration:.2f}s: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        # Security: Don't expose internal error details to clients
+        return jsonify({"error": "An internal error occurred while processing your request"}), 500
 
 
 @app.errorhandler(404)
