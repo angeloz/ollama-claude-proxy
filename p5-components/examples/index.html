@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>p5-components Demo - Visual RAD System</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 2.5em;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 1.1em;
+    }
+
+    .demo-section {
+      margin: 30px 0;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+
+    .demo-section h2 {
+      color: #667eea;
+      margin-top: 0;
+      font-size: 1.5em;
+    }
+
+    .demo-area {
+      position: relative;
+      min-height: 200px;
+      background: white;
+      border: 2px dashed #ddd;
+      border-radius: 5px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+
+    .output {
+      margin-top: 15px;
+      padding: 15px;
+      background: #f0f0f0;
+      border-radius: 5px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .output-line {
+      margin: 5px 0;
+      padding: 5px;
+      background: white;
+      border-radius: 3px;
+      border-left: 3px solid #667eea;
+    }
+
+    .json-output {
+      margin-top: 15px;
+      padding: 15px;
+      background: #2d2d2d;
+      color: #f8f8f2;
+      border-radius: 5px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85em;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .controls {
+      margin-top: 20px;
+      padding: 15px;
+      background: white;
+      border-radius: 5px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .control-btn {
+      padding: 10px 20px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1em;
+      transition: background 0.3s;
+    }
+
+    .control-btn:hover {
+      background: #5568d3;
+    }
+
+    .control-btn:active {
+      background: #4a5dc6;
+    }
+
+    code {
+      background: #f0f0f0;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .feature-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .feature-list li {
+      padding: 8px 0;
+      padding-left: 25px;
+      position: relative;
+    }
+
+    .feature-list li:before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #667eea;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>p5-components Demo</h1>
+    <p class="subtitle">Visual RAD System - VB6-inspired GUI Components built with p5.js</p>
+
+    <!-- Button Demo -->
+    <div class="demo-section">
+      <h2>Button Component</h2>
+      <p>Interactive button with hover, active states, and click events.</p>
+      <div class="demo-area" id="button-demo"></div>
+      <div class="controls">
+        <button class="control-btn" onclick="toggleButton()">Toggle Enable/Disable</button>
+        <button class="control-btn" onclick="toggleButtonVisibility()">Toggle Visibility</button>
+        <button class="control-btn" onclick="changeButtonText()">Change Text</button>
+        <button class="control-btn" onclick="showButtonJSON()">Show JSON</button>
+      </div>
+      <div class="output" id="button-output">
+        <div class="output-line">Click the button above to see events...</div>
+      </div>
+      <div class="json-output" id="button-json" style="display: none;"></div>
+    </div>
+
+    <!-- TextBox Demo -->
+    <div class="demo-section">
+      <h2>TextBox Component</h2>
+      <p>Text input with cursor, keyboard support, and change events. Click to focus and type.</p>
+      <div class="demo-area" id="textbox-demo"></div>
+      <div class="controls">
+        <button class="control-btn" onclick="setTextBoxValue()">Set Value</button>
+        <button class="control-btn" onclick="clearTextBox()">Clear</button>
+        <button class="control-btn" onclick="toggleTextBoxReadOnly()">Toggle Read-Only</button>
+        <button class="control-btn" onclick="showTextBoxJSON()">Show JSON</button>
+      </div>
+      <div class="output" id="textbox-output">
+        <div class="output-line">Type in the textbox above to see events...</div>
+      </div>
+      <div class="json-output" id="textbox-json" style="display: none;"></div>
+    </div>
+
+    <!-- Label Demo -->
+    <div class="demo-section">
+      <h2>Label Component</h2>
+      <p>Static text display with various alignment and styling options.</p>
+      <div class="demo-area" id="label-demo"></div>
+      <div class="controls">
+        <button class="control-btn" onclick="changeLabelText()">Change Text</button>
+        <button class="control-btn" onclick="cycleLabelAlignment()">Cycle Alignment</button>
+        <button class="control-btn" onclick="toggleLabelStyle()">Toggle Style</button>
+        <button class="control-btn" onclick="showLabelJSON()">Show JSON</button>
+      </div>
+      <div class="output" id="label-output">
+        <div class="output-line">Label component initialized...</div>
+      </div>
+      <div class="json-output" id="label-json" style="display: none;"></div>
+    </div>
+
+    <!-- Features -->
+    <div class="demo-section">
+      <h2>Key Features</h2>
+      <ul class="feature-list">
+        <li>VB6-like properties: Text, Name, Enabled, Visible, BackColor, ForeColor, etc.</li>
+        <li>Event system: Click, Change, Focus, Blur, MouseEnter, MouseLeave, KeyPress</li>
+        <li>State management: normal, hover, active, disabled, focused</li>
+        <li>JSON serialization for saving/loading layouts</li>
+        <li>Instance mode p5.js - each component has its own canvas</li>
+        <li>Standard methods: getValue(), setValue(), enable(), disable(), show(), hide()</li>
+        <li>Fully customizable appearance and behavior</li>
+      </ul>
+    </div>
+
+    <!-- Usage Example -->
+    <div class="demo-section">
+      <h2>Usage Example</h2>
+      <pre style="background: #2d2d2d; color: #f8f8f2; padding: 20px; border-radius: 5px; overflow-x: auto;"><code>// Create a button
+const btn = new P5Button({
+  text: 'Click me',
+  width: 100,
+  height: 30,
+  left: 10,
+  top: 10,
+  backColor: '#E0E0E0',
+  foreColor: '#000000'
+});
+
+// Listen to events
+btn.on('click', () => {
+  console.log('Button clicked!');
+});
+
+// Change properties
+btn.text = 'New Text';
+btn.enabled = false;
+
+// Serialize to JSON
+const json = btn.toJSON();
+console.log(json);</code></pre>
+    </div>
+  </div>
+
+  <!-- p5.js library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+
+  <!-- Demo script -->
+  <script type="module" src="./demo.js"></script>
+</body>
+</html>

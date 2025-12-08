@@ -1,0 +1,27 @@
+{
+  "name": "p5-components",
+  "version": "1.0.0",
+  "description": "Visual RAD system components library built with p5.js - VB6-inspired GUI components for rapid application development",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "serve -p 8080 examples",
+    "test": "echo \"Tests to be implemented\" && exit 0"
+  },
+  "keywords": [
+    "p5.js",
+    "GUI",
+    "components",
+    "RAD",
+    "visual-programming",
+    "VB6"
+  ],
+  "author": "",
+  "license": "MIT",
+  "peerDependencies": {
+    "p5": "^1.7.0"
+  },
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}
